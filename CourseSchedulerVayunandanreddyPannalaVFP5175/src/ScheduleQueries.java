@@ -3,7 +3,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Calendar;
 
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
@@ -18,12 +17,11 @@ public class ScheduleQueries {
     private static Connection connection;
     private static PreparedStatement addSchedule;
     private static PreparedStatement dropStudentCourse;
-    private static PreparedStatement dropStudentClass;
     private static PreparedStatement getWaitlisted;
-    private static PreparedStatement getCourseStudents;
     private static PreparedStatement updateSchedule;
     private static PreparedStatement getNumScheduled;
     private static PreparedStatement getSchedule;
+    private static PreparedStatement getExistingEnrollment;
     private static ResultSet resultSet;
     
     public static void addSchedule(ScheduleEntry schedule){
@@ -76,14 +74,14 @@ public class ScheduleQueries {
         connection = DBConnection.getConnection();
         ArrayList<ScheduleEntry> waitlisted = new ArrayList<>();
         try{
-            getWaitlisted = connection.prepareStatement("select studentid, timestamp from java.schedule where semester = ? and coursecode = ? and status = ?");
+            getWaitlisted = connection.prepareStatement("select studentid, timestamp from java.schedule where semester = ? and coursecode = ? and status = ? order by timestamp");
             getWaitlisted.setString(1, semester);
             getWaitlisted.setString(2, courseCode);
-            getWaitlisted.setString(3, "w");
+            getWaitlisted.setString(3, ScheduleStatus.WAITLISTED);
             resultSet = getWaitlisted.executeQuery();
             
             while (resultSet.next()){
-                waitlisted.add(new ScheduleEntry(semester, courseCode, resultSet.getString(1), "w", resultSet.getTimestamp(2)));
+                waitlisted.add(new ScheduleEntry(semester, courseCode, resultSet.getString(1), ScheduleStatus.WAITLISTED, resultSet.getTimestamp(2)));
             }
         }
         catch(SQLException sqlException){
@@ -95,23 +93,42 @@ public class ScheduleQueries {
     public static void updateStatus(String semester, ScheduleEntry schedule){
         connection = DBConnection.getConnection();
         try{
-            updateSchedule = connection.prepareStatement("update java.schedule set status = 's' where semester = ? and coursecode = ? and studentid = ?");
-            updateSchedule.setString(1, semester);
-            updateSchedule.setString(2, schedule.getCourseCode());
-            updateSchedule.setString(3, schedule.getStudentID());
+            updateSchedule = connection.prepareStatement("update java.schedule set status = ? where semester = ? and coursecode = ? and studentid = ?");
+            updateSchedule.setString(1, ScheduleStatus.SCHEDULED);
+            updateSchedule.setString(2, semester);
+            updateSchedule.setString(3, schedule.getCourseCode());
+            updateSchedule.setString(4, schedule.getStudentID());
             updateSchedule.executeUpdate();
         }
         catch(SQLException sqlException){
             sqlException.printStackTrace();
         }
     }
+    
+    public static boolean isStudentEnrolledInCourse(String semester, String courseCode, String studentId){
+        connection = DBConnection.getConnection();
+        try{
+            getExistingEnrollment = connection.prepareStatement("select studentid from java.schedule where semester = ? and coursecode = ? and studentid = ?");
+            getExistingEnrollment.setString(1, semester);
+            getExistingEnrollment.setString(2, courseCode);
+            getExistingEnrollment.setString(3, studentId);
+            resultSet = getExistingEnrollment.executeQuery();
+            return resultSet.next();
+        }
+        catch(SQLException sqlException){
+            sqlException.printStackTrace();
+            return false;
+        }
+    }
+    
     public static int getScheduledStudentsCount(String semester, String courseCode){
         connection = DBConnection.getConnection();
         int count = 0;
         try{
-            getNumScheduled = connection.prepareStatement("select studentid from java.schedule where semester = (?) and coursecode = (?)");
+            getNumScheduled = connection.prepareStatement("select studentid from java.schedule where semester = ? and coursecode = ? and status = ?");
             getNumScheduled.setString(1, semester);
             getNumScheduled.setString(2, courseCode);
+            getNumScheduled.setString(3, ScheduleStatus.SCHEDULED);
             resultSet = getNumScheduled.executeQuery();
             
             while (resultSet.next()){
@@ -128,7 +145,7 @@ public class ScheduleQueries {
         connection = DBConnection.getConnection();
         ArrayList<ScheduleEntry> schedule = new ArrayList<>();
         try{
-            getSchedule = connection.prepareStatement("select * from java.schedule where semester = (?) and studentid = (?)");
+            getSchedule = connection.prepareStatement("select * from java.schedule where semester = ? and studentid = ? order by coursecode");
             getSchedule.setString(1, semester);
             getSchedule.setString(2, id);
             resultSet = getSchedule.executeQuery();
@@ -147,7 +164,7 @@ public class ScheduleQueries {
         connection = DBConnection.getConnection();
         ArrayList<String> schedule = new ArrayList<>();
         try{
-            getSchedule = connection.prepareStatement("select coursecode from java.schedule where semester = (?) and studentid = (?)");
+            getSchedule = connection.prepareStatement("select coursecode from java.schedule where semester = ? and studentid = ? order by coursecode");
             getSchedule.setString(1, semester);
             getSchedule.setString(2, id);
             resultSet = getSchedule.executeQuery();

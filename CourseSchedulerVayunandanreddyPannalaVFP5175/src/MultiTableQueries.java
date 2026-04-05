@@ -16,7 +16,6 @@ public class MultiTableQueries {
     private static Connection connection;
     private static PreparedStatement getCourses;
     private static PreparedStatement getStudents;
-    private static PreparedStatement getWaitlisted;
     private static ResultSet resultSet;
     
     public static ArrayList<ClassDescription> getAllCourseDescriptions(String semester){
@@ -46,14 +45,14 @@ public class MultiTableQueries {
         ArrayList<ScheduleEntry> courseStudents = new ArrayList<>();
         
         try{
-            getStudents = connection.prepareStatement("select studentid, timestamp from java.schedule where semester = ? and courseCode = ? and status = ?");
+            getStudents = connection.prepareStatement("select studentid, timestamp from java.schedule where semester = ? and courseCode = ? and status = ? order by timestamp");
             getStudents.setString(1, semester);
             getStudents.setString(2, courseCode);
-            getStudents.setString(3, "s");
+            getStudents.setString(3, ScheduleStatus.SCHEDULED);
             resultSet = getStudents.executeQuery();
             
             while (resultSet.next()){
-                courseStudents.add(new ScheduleEntry(semester, courseCode, resultSet.getString(1), "s", resultSet.getTimestamp(2)));
+                courseStudents.add(new ScheduleEntry(semester, courseCode, resultSet.getString(1), ScheduleStatus.SCHEDULED, resultSet.getTimestamp(2)));
             }
         }
         catch(SQLException sqlException){
@@ -67,14 +66,14 @@ public class MultiTableQueries {
         ArrayList<ScheduleEntry> courseStudents = new ArrayList<>();
         
         try{
-            getStudents = connection.prepareStatement("select studentid, timestamp from java.schedule where semester = ? and courseCode = ? and status = ?");
+            getStudents = connection.prepareStatement("select studentid, timestamp from java.schedule where semester = ? and courseCode = ? and status = ? order by timestamp");
             getStudents.setString(1, semester);
             getStudents.setString(2, courseCode);
-            getStudents.setString(3, "w");
+            getStudents.setString(3, ScheduleStatus.WAITLISTED);
             resultSet = getStudents.executeQuery();
             
             while (resultSet.next()){
-                courseStudents.add(new ScheduleEntry(semester, courseCode, resultSet.getString(1), "w", resultSet.getTimestamp(2)));
+                courseStudents.add(new ScheduleEntry(semester, courseCode, resultSet.getString(1), ScheduleStatus.WAITLISTED, resultSet.getTimestamp(2)));
             }
         }
         catch(SQLException sqlException){

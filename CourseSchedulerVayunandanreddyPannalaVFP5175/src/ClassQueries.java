@@ -20,6 +20,7 @@ public class ClassQueries
     private static PreparedStatement addClass;
     private static PreparedStatement dropClass;
     private static PreparedStatement getClasses;
+    private static PreparedStatement classExists;
     private static ResultSet resultSet;
    
     public static void addClass(ClassEntry classEntry){
@@ -44,7 +45,7 @@ public class ClassQueries
         connection = DBConnection.getConnection();
         ArrayList<String> classes = new ArrayList<>();
         try{
-            getClasses = connection.prepareStatement("select coursecode from java.class where semester = (?)");
+            getClasses = connection.prepareStatement("select coursecode from java.class where semester = ? order by coursecode");
             getClasses.setString(1, semester);
             resultSet = getClasses.executeQuery();
             
@@ -70,6 +71,20 @@ public class ClassQueries
         catch(SQLException sqlException)
         {
             sqlException.printStackTrace();
+        }
+    }
+    
+    public static boolean exists(String semester, String courseCode) {
+        connection = DBConnection.getConnection();
+        try {
+            classExists = connection.prepareStatement("select coursecode from java.class where semester = ? and coursecode = ?");
+            classExists.setString(1, semester);
+            classExists.setString(2, courseCode);
+            resultSet = classExists.executeQuery();
+            return resultSet.next();
+        } catch (SQLException sqlException) {
+            sqlException.printStackTrace();
+            return false;
         }
     }
 }

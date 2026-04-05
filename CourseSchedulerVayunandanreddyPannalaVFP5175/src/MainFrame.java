@@ -5,12 +5,15 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.awt.Color;
+import java.awt.Font;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Calendar;
+import javax.swing.JButton;
+import javax.swing.JTable;
 import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
-import java.security.Timestamp;
 
 
 /*
@@ -23,6 +26,7 @@ import java.security.Timestamp;
  * @author Vayunandanreddy Pannala
  */
 public class MainFrame extends javax.swing.JFrame {
+    private static final String appInfoFilename = "xzq789yy.txt";
 
     /**
      * Creates new form MainFrame
@@ -33,6 +37,9 @@ public class MainFrame extends javax.swing.JFrame {
 
     public MainFrame() {
         initComponents();
+        setTitle("Course Scheduler");
+        setLocationRelativeTo(null);
+        applyModernTheme();
         checkData();
         rebuildSemesterComboBoxes();
         rebuildClassComboBoxes();
@@ -48,8 +55,11 @@ public class MainFrame extends javax.swing.JFrame {
             currentSemester = "None";
         }
         else{
+            if (currentSemester == null || !semesters.contains(currentSemester)) {
+                currentSemester = semesters.get(0);
+            }
             currentSemesterLabel.setText(currentSemester);
-            currentSemester = semesters.get(0);
+            currentSemesterComboBox.setSelectedItem(currentSemester);
         }
     }
     
@@ -68,7 +78,6 @@ public class MainFrame extends javax.swing.JFrame {
         ArrayList<String> students = StudentQueries.getStudents();
         scheduleClassesSelectStudentComboBox.setModel(new javax.swing.DefaultComboBoxModel(students.toArray()));
         displayScheduleStudentComboBox.setModel(new javax.swing.DefaultComboBoxModel(students.toArray()));
-        dropClassStudentComboBox.setModel(new javax.swing.DefaultComboBoxModel(students.toArray()));
         
         String curr = "";
         ArrayList<StudentEntry> studentObjects = StudentQueries.getStudentObjects();
@@ -85,6 +94,50 @@ public class MainFrame extends javax.swing.JFrame {
     public void rebuildCurrentStudentComboBox(StudentEntry student){
         ArrayList<String> classes = ScheduleQueries.getCourseCodesByStudent(currentSemester, student.getStudentID());
         dropClassComboBox.setModel(new javax.swing.DefaultComboBoxModel(classes.toArray()));
+    }
+    
+    private void applyModernTheme() {
+        Color primary = new Color(25, 118, 210);
+        Color surface = new Color(248, 250, 252);
+        Color heading = new Color(15, 23, 42);
+        
+        getContentPane().setBackground(surface);
+        jLabel1.setFont(new Font("SansSerif", Font.BOLD, 28));
+        jLabel1.setForeground(heading);
+        currentSemesterLabel.setForeground(primary);
+        
+        styleButton(addSemesterSubmitButton, primary);
+        styleButton(addCourseSubmitButton, primary);
+        styleButton(addClassSubmitButton, primary);
+        styleButton(addStudentSubmitButton, primary);
+        styleButton(displayStudentsButton, primary);
+        styleButton(dropStudentSubmitButton, primary);
+        styleButton(adminDropCourseSubmitButton, primary);
+        styleButton(displayClassesButton, primary);
+        styleButton(scheduleClassesSubmitButton, primary);
+        styleButton(displayScheduleButton, primary);
+        styleButton(dropClassSubmitButton, primary);
+        styleButton(changeSemesterButton, primary);
+        styleButton(aboutButton, new Color(71, 85, 105));
+        
+        styleTable(displayClassesTable);
+        styleTable(scheduledStudentsTable);
+        styleTable(waitlistedStudentsTable);
+        styleTable(displayScheduleTable);
+    }
+    
+    private void styleButton(JButton button, Color color) {
+        button.setBackground(color);
+        button.setForeground(Color.WHITE);
+        button.setFocusPainted(false);
+        button.setFont(new Font("SansSerif", Font.BOLD, 12));
+    }
+    
+    private void styleTable(JTable table) {
+        table.setRowHeight(24);
+        table.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
+        table.getTableHeader().setBackground(new Color(226, 232, 240));
+        table.getTableHeader().setForeground(new Color(15, 23, 42));
     }
 
     /**
@@ -964,8 +1017,16 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void displayScheduleButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_displayScheduleButtonActionPerformed
         // TODO add your handling code here:
-        String student = displayScheduleStudentComboBox.getSelectedItem().toString();
+        String student = getSelectedValue(displayScheduleStudentComboBox);
+        if (student == null) {
+            showInputError("Select a student to display a schedule.");
+            return;
+        }
         String id = StudentQueries.getStudentID(student);
+        if (id.isBlank()) {
+            showInputError("Selected student could not be resolved.");
+            return;
+        }
         ArrayList<ScheduleEntry> scheduled = ScheduleQueries.getStudentSchedule(currentSemester, id);
         DefaultTableModel displayScheduleModel = (DefaultTableModel) displayScheduleTable.getModel();
         displayScheduleModel.setNumRows(0);
@@ -980,21 +1041,45 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void scheduleClassesSubmitButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_scheduleClassesSubmitButtonActionPerformed
         // TODO add your handling code here:
-        String student = scheduleClassesSelectStudentComboBox.getSelectedItem().toString();
-        String course = scheduleClassesSelectClassComboBox.getSelectedItem().toString();
+        String student = getSelectedValue(scheduleClassesSelectStudentComboBox);
+        String course = getSelectedValue(scheduleClassesSelectClassComboBox);
+        if (student == null || course == null) {
+            showInputError("Select both a student and a class before scheduling.");
+            return;
+        }
+        if ("None".equals(currentSemester)) {
+            showInputError("Add a semester before scheduling classes.");
+            return;
+        }
+        
         String id = StudentQueries.getStudentID(student);
-        String status = "";
+        if (id.isBlank()) {
+            showInputError("Selected student could not be resolved.");
+            return;
+        }
+        
+        if (ScheduleQueries.isStudentEnrolledInCourse(currentSemester, course, id)) {
+            scheduleClassesStatusLabel.setText(student + " is already enrolled for " + course + ".");
+            return;
+        }
+        
+        String status;
         java.sql.Timestamp currentTimestamp = new java.sql.Timestamp(Calendar.getInstance().getTime().getTime());
         int seats = CourseQueries.getCourseSeats(currentSemester, course);
+        if (seats <= 0) {
+            showInputError("Selected class has invalid seat capacity.");
+            return;
+        }
+        
         int occupied = ScheduleQueries.getScheduledStudentsCount(currentSemester, course);
         
         if (seats > occupied){
-            status = "s";
+            status = ScheduleStatus.SCHEDULED;
             scheduleClassesStatusLabel.setText(student + " has been scheduled for " + course + ".");
         }
         
         else{
-            status = "w";
+            status = ScheduleStatus.WAITLISTED;
             scheduleClassesStatusLabel.setText(student + " has been waitlisted for " + course + ".");
         }
         
@@ -1005,7 +1090,13 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void changeSemesterButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_changeSemesterButtonActionPerformed
         // TODO add your handling code here:
-        currentSemester = currentSemesterComboBox.getSelectedItem().toString();
+        String selectedSemester = getSelectedValue(currentSemesterComboBox);
+        if (selectedSemester == null) {
+            showInputError("Select a semester first.");
+            return;
+        }
+        
+        currentSemester = selectedSemester;
         currentSemesterLabel.setText(currentSemester);
         rebuildSemesterComboBoxes();
         rebuildStudentComboBoxes();
@@ -1018,25 +1109,38 @@ public class MainFrame extends javax.swing.JFrame {
         //2) Schedule next waitlisted students in classes for each semester
         //3) Remove student from all their classes in each semester
         //4) For every action, print the result in the text area
+        String selectedStudent = getSelectedValue(dropStudentComboBox);
+        if (selectedStudent == null) {
+            showInputError("Select a student to drop.");
+            return;
+        }
+        
         dropStudentTextArea.setText("");
         StudentEntry currentStudent = StudentQueries.getStudent(getStudentCB(dropStudentComboBox));
-        dropStudentTextArea.append((String)dropStudentComboBox.getSelectedItem() + " has been dropped from the list of stuents.\n\n");
+        if (currentStudent == null) {
+            showInputError("Selected student could not be loaded.");
+            return;
+        }
+        
+        dropStudentTextArea.append(selectedStudent + " has been dropped from the list of students.\n\n");
 
-        String droppedCourses = "";
-        String addedStudents = "";
         for (String currSem: SemesterQueries.getSemesterList()){
+            String droppedCourses = "";
+            String addedStudents = "";
 
             for (ScheduleEntry schedule: ScheduleQueries.getStudentSchedule(currSem, currentStudent.getStudentID())){
 
                 ScheduleQueries.dropStudentByCourse(currSem, currentStudent.getStudentID(), schedule.getCourseCode());
-                droppedCourses += dropStudentComboBox.getSelectedItem().toString() + " has been removed from " + schedule.getCourseCode() + "\n";
+                droppedCourses += selectedStudent + " has been removed from " + schedule.getCourseCode() + "\n";
 
                 ArrayList<ScheduleEntry> waitlisted = ScheduleQueries.getWaitlistedStudents(currSem, schedule.getCourseCode());
 
                 if (!waitlisted.isEmpty()){
                     ScheduleQueries.updateStatus(currSem, waitlisted.get(0));
                     StudentEntry newStudent = StudentQueries.getStudent(waitlisted.get(0).getStudentID());
-                    addedStudents += newStudent.getLastName() + "," + newStudent.getFirstName() + newStudent.getStudentID() + " has been scheduled for " + waitlisted.get(0).getCourseCode() + "\n";
+                    if (newStudent != null) {
+                        addedStudents += newStudent.getLastName() + "," + newStudent.getFirstName() + " " + newStudent.getStudentID() + " has been scheduled for " + waitlisted.get(0).getCourseCode() + "\n";
+                    }
                 }
             }
 
@@ -1057,7 +1161,11 @@ public class MainFrame extends javax.swing.JFrame {
         //2) Use for loop to make an ArrayList of waitlisted and scheduled StudentEntry objects
         //3) Create Object arrays for waitlisted and scheduled students and use a for loop to add the StudentEntry objects to the table
 
-        String courseCode = displayStudentsCourseCodeComboBox.getSelectedItem().toString();
+        String courseCode = getSelectedValue(displayStudentsCourseCodeComboBox);
+        if (courseCode == null) {
+            showInputError("Select a course to display roster details.");
+            return;
+        }
         ArrayList<ScheduleEntry> scheduled = MultiTableQueries.getScheduledStudentsByCourse(currentSemester, courseCode);
         ArrayList<ScheduleEntry> waitlisted = MultiTableQueries.getWaitlistedStudentsByCourse(currentSemester, courseCode);
 
@@ -1065,11 +1173,17 @@ public class MainFrame extends javax.swing.JFrame {
         ArrayList<StudentEntry> waitlistedStudents = new ArrayList<>();
 
         for (ScheduleEntry s: scheduled){
-            scheduledStudents.add(StudentQueries.getStudent(s.getStudentID()));
+            StudentEntry student = StudentQueries.getStudent(s.getStudentID());
+            if (student != null) {
+                scheduledStudents.add(student);
+            }
         }
 
         for (ScheduleEntry w: waitlisted){
-            waitlistedStudents.add(StudentQueries.getStudent(w.getStudentID()));
+            StudentEntry student = StudentQueries.getStudent(w.getStudentID());
+            if (student != null) {
+                waitlistedStudents.add(student);
+            }
         }
 
         DefaultTableModel scheduledStudentsModel = (DefaultTableModel) scheduledStudentsTable.getModel();
@@ -1099,9 +1213,20 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void addStudentSubmitButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addStudentSubmitButtonActionPerformed
         // TODO add your handling code here:
-        String studentID = addStudentIDTextField.getText();
-        String first = addStudentFirstName.getText();
-        String last = addStudentLastName.getText();
+        String studentID = normalize(addStudentIDTextField.getText());
+        String first = normalize(addStudentFirstName.getText());
+        String last = normalize(addStudentLastName.getText());
+        
+        if (studentID.isBlank() || first.isBlank() || last.isBlank()) {
+            showInputError("Student ID, first name, and last name are required.");
+            return;
+        }
+        
+        if (StudentQueries.exists(studentID)) {
+            showInputError("A student with this ID already exists.");
+            return;
+        }
+        
         StudentQueries.addStudent(new StudentEntry(studentID, first, last));
         addStudentStatusLabel.setText(last + "," + first + " has been added.");
         addStudentIDTextField.setText("");
@@ -1116,8 +1241,28 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void addClassSubmitButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addClassSubmitButtonActionPerformed
         // TODO add your handling code here:
-        String courseCode = addClassCourseCodeComboBox.getSelectedItem().toString();
+        String courseCode = getSelectedValue(addClassCourseCodeComboBox);
+        if (courseCode == null) {
+            showInputError("Select a course code before creating a class.");
+            return;
+        }
+        
+        if ("None".equals(currentSemester)) {
+            showInputError("Add a semester before creating classes.");
+            return;
+        }
+        
         int seats = (int) addClassSeatsSpinner.getValue();
+        if (seats <= 0) {
+            showInputError("Seat count must be greater than zero.");
+            return;
+        }
+        
+        if (ClassQueries.exists(currentSemester, courseCode)) {
+            showInputError("This class already exists in the selected semester.");
+            return;
+        }
+        
         ClassQueries.addClass(new ClassEntry(currentSemester, courseCode, seats));
         addClassStatusLabel.setText(courseCode + " has been added.");
         rebuildClassComboBoxes();
@@ -1125,14 +1270,21 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void addCourseSubmitButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addCourseSubmitButtonActionPerformed
         // TODO add your handling code here:
-        if (addCourseCodeTextField.getText().length() > 0 && addCourseDescriptionTextField.getText().length() > 0){
-            String courseCode = addCourseCodeTextField.getText();
-            String description = addCourseDescriptionTextField.getText();
+        String courseCode = normalize(addCourseCodeTextField.getText()).toUpperCase();
+        String description = normalize(addCourseDescriptionTextField.getText());
+        if (!courseCode.isBlank() && !description.isBlank()){
+            if (CourseQueries.exists(courseCode)) {
+                showInputError("This course code already exists.");
+                return;
+            }
+            
             CourseQueries.addCourse(new CourseEntry(courseCode, description));
             addCourseStatusLabel.setText(courseCode + " has been added.");
             addCourseCodeTextField.setText("");
             addCourseDescriptionTextField.setText("");
             rebuildCourseComboBoxes();
+        } else {
+            showInputError("Course code and description are required.");
         }
     }//GEN-LAST:event_addCourseSubmitButtonActionPerformed
 
@@ -1145,7 +1297,17 @@ public class MainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_addCourseCodeTextFieldActionPerformed
 
     private void addSemesterSubmitButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addSemesterSubmitButtonActionPerformed
-        String semester = addSemesterTextfield.getText();
+        String semester = normalize(addSemesterTextfield.getText()).toUpperCase();
+        if (semester.isBlank()) {
+            showInputError("Semester name is required.");
+            return;
+        }
+        
+        if (SemesterQueries.exists(semester)) {
+            showInputError("This semester already exists.");
+            return;
+        }
+        
         SemesterQueries.addSemester(semester);
         addSemesterStatusLabel.setText("Semester " + semester + " has been added.");
         addSemesterTextfield.setText("");
@@ -1155,19 +1317,34 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void dropClassSubmitButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_dropClassSubmitButtonActionPerformed
         // TODO add your handling code here:
+        String selectedStudent = getSelectedValue(dropClassStudentComboBox);
+        String selectedCourse = getSelectedValue(dropClassComboBox);
+        if (selectedStudent == null || selectedCourse == null) {
+            showInputError("Select both a student and course to drop.");
+            return;
+        }
+        
         StudentEntry currentStudent = StudentQueries.getStudent(getStudentCB(dropClassStudentComboBox));
+        if (currentStudent == null) {
+            showInputError("Selected student could not be loaded.");
+            return;
+        }
+        
+        dropClassTextArea.setText("");
         String droppedCourses = "";
         String addedStudents = "";
 
-            ScheduleQueries.dropStudentByCourse(currentSemester, currentStudent.getStudentID(), dropClassComboBox.getSelectedItem().toString());
-            droppedCourses += dropClassStudentComboBox.getSelectedItem().toString() + " has been removed from " + dropClassComboBox.getSelectedItem().toString() + "\n";
+            ScheduleQueries.dropStudentByCourse(currentSemester, currentStudent.getStudentID(), selectedCourse);
+            droppedCourses += selectedStudent + " has been removed from " + selectedCourse + "\n";
 
-            ArrayList<ScheduleEntry> waitlisted = ScheduleQueries.getWaitlistedStudents(currentSemester, dropClassComboBox.getSelectedItem().toString());
+            ArrayList<ScheduleEntry> waitlisted = ScheduleQueries.getWaitlistedStudents(currentSemester, selectedCourse);
 
             if (!waitlisted.isEmpty()){
                 ScheduleQueries.updateStatus(currentSemester, waitlisted.get(0));
                 StudentEntry newStudent = StudentQueries.getStudent(waitlisted.get(0).getStudentID());
-                addedStudents += newStudent.getLastName() + "," + newStudent.getFirstName() + newStudent.getStudentID() + " has been scheduled for " + waitlisted.get(0).getCourseCode() + "\n";
+                if (newStudent != null) {
+                    addedStudents += newStudent.getLastName() + "," + newStudent.getFirstName() + " " + newStudent.getStudentID() + " has been scheduled for " + waitlisted.get(0).getCourseCode() + "\n";
+                }
             }
 
         if (!droppedCourses.isEmpty() || !addedStudents.isEmpty()){
@@ -1182,29 +1359,41 @@ public class MainFrame extends javax.swing.JFrame {
     private void dropClassStudentComboBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_dropClassStudentComboBoxActionPerformed
         // TODO add your handling code here:
         StudentEntry currentStudent = StudentQueries.getStudent(getStudentCB(dropClassStudentComboBox));
-        rebuildCurrentStudentComboBox(currentStudent);
+        if (currentStudent != null) {
+            rebuildCurrentStudentComboBox(currentStudent);
+        }
     }//GEN-LAST:event_dropClassStudentComboBoxActionPerformed
 
     private void adminDropCourseSubmitButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_adminDropCourseSubmitButtonActionPerformed
         // TODO add your handling code here:
+        String selectedCourse = getSelectedValue(adminDropCourseComboBox);
+        if (selectedCourse == null) {
+            showInputError("Select a course to drop.");
+            return;
+        }
+        
         adminDropCourseTextArea.setText("");
         String scheduledStudents = "Scheduled students dropped from the course:\n\n";
         String waitlistedStudents = "\nWaitlisted students dropped from the course:\n\n";
         
-        for (ScheduleEntry schedule: MultiTableQueries.getScheduledStudentsByCourse(currentSemester, adminDropCourseComboBox.getSelectedItem().toString())){
+        for (ScheduleEntry schedule: MultiTableQueries.getScheduledStudentsByCourse(currentSemester, selectedCourse)){
             StudentEntry currentStudent = StudentQueries.getStudent(schedule.getStudentID());
-            scheduledStudents += currentStudent.getLastName() + "," + currentStudent.getFirstName() + " " + currentStudent.getStudentID()
-                                 + " has been dropped from " + adminDropCourseComboBox.getSelectedItem().toString() + "\n";
+            if (currentStudent != null) {
+                scheduledStudents += currentStudent.getLastName() + "," + currentStudent.getFirstName() + " " + currentStudent.getStudentID()
+                                     + " has been dropped from " + selectedCourse + "\n";
+            }
         }
         
-        for (ScheduleEntry schedule: MultiTableQueries.getWaitlistedStudentsByCourse(currentSemester, adminDropCourseComboBox.getSelectedItem().toString())){
+        for (ScheduleEntry schedule: MultiTableQueries.getWaitlistedStudentsByCourse(currentSemester, selectedCourse)){
             StudentEntry currentStudent = StudentQueries.getStudent(schedule.getStudentID());
-            waitlistedStudents += currentStudent.getLastName() + "," + currentStudent.getFirstName() + " " + currentStudent.getStudentID() + 
-                    " has been dropped from " + adminDropCourseComboBox.getSelectedItem().toString() + "\n";
+            if (currentStudent != null) {
+                waitlistedStudents += currentStudent.getLastName() + "," + currentStudent.getFirstName() + " " + currentStudent.getStudentID() + 
+                        " has been dropped from " + selectedCourse + "\n";
+            }
         }
         
-        ScheduleQueries.dropStudentsByCourse(currentSemester, adminDropCourseComboBox.getSelectedItem().toString());
-        ClassQueries.dropClass(currentSemester, adminDropCourseComboBox.getSelectedItem().toString());
+        ScheduleQueries.dropStudentsByCourse(currentSemester, selectedCourse);
+        ClassQueries.dropClass(currentSemester, selectedCourse);
         rebuildClassComboBoxes();
         adminDropCourseTextArea.append(scheduledStudents);
         adminDropCourseTextArea.append(waitlistedStudents);
@@ -1215,12 +1404,41 @@ public class MainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_addSemesterTextfieldActionPerformed
 
     private String getStudentCB(javax.swing.JComboBox<String> input){
-        String[] result = ((String)input.getSelectedItem()).split(" ");
-        return result[1];
+        String selectedValue = getSelectedValue(input);
+        if (selectedValue == null) {
+            return "";
+        }
+        
+        String[] result = selectedValue.trim().split("\\s+");
+        return result[result.length - 1];
     }
+    
+    private String getSelectedValue(javax.swing.JComboBox<String> input) {
+        if (input == null || input.getSelectedItem() == null) {
+            return null;
+        }
+        
+        String value = input.getSelectedItem().toString().trim();
+        if (value.isBlank()) {
+            return null;
+        }
+        return value;
+    }
+    
+    private String normalize(String input) {
+        if (input == null) {
+            return "";
+        }
+        return input.trim();
+    }
+    
+    private void showInputError(String message) {
+        JOptionPane.showMessageDialog(this, message, "Input Required", JOptionPane.WARNING_MESSAGE);
+    }
+    
     private void checkData() {
         try {
-            FileReader reader = new FileReader("xzq78933yy.txt");
+            FileReader reader = new FileReader(appInfoFilename);
             BufferedReader breader = new BufferedReader(reader);
 
             String encodedAuthor = breader.readLine();
@@ -1238,7 +1456,7 @@ public class MainFrame extends javax.swing.JFrame {
 
             //write data to the data file.
             try {
-                FileWriter writer = new FileWriter("xzq789yy.txt", true);
+                FileWriter writer = new FileWriter(appInfoFilename, true);
                 BufferedWriter bufferedWriter = new BufferedWriter(writer);
 
                 // encode the output data.

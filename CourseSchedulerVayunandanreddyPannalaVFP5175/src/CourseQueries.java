@@ -17,6 +17,7 @@ public class CourseQueries {
     private static Connection connection;
     private static PreparedStatement addCourse;
     private static PreparedStatement getCourseList;
+    private static PreparedStatement getCourseByCode;
     private static ResultSet resultSet;
     
     public static ArrayList<CourseEntry> getCourses(String semester){
@@ -24,8 +25,7 @@ public class CourseQueries {
         connection = DBConnection.getConnection();
         ArrayList<CourseEntry> courses = new ArrayList<>();
         try{
-            getCourseList = connection.prepareStatement("select courseCode, description from java.course where semester = (?)");
-            getCourseList.setString(1, semester);
+            getCourseList = connection.prepareStatement("select courseCode, description from java.course order by courseCode");
             resultSet = getCourseList.executeQuery();
             
             while (resultSet.next()){
@@ -61,7 +61,7 @@ public class CourseQueries {
         ArrayList<String> codes = new ArrayList<>();
         
         try{
-            getCourseList = connection.prepareStatement("select coursecode from java.course");
+            getCourseList = connection.prepareStatement("select coursecode from java.course order by coursecode");
             resultSet = getCourseList.executeQuery();
             
             while (resultSet.next()){
@@ -85,13 +85,27 @@ public class CourseQueries {
             getCourseList.setString(1, semester);
             getCourseList.setString(2, courseCode);
             resultSet = getCourseList.executeQuery();
-            resultSet.next();
-            count = resultSet.getInt(1);
+            if (resultSet.next()) {
+                count = resultSet.getInt(1);
+            }
         }
         
         catch(SQLException sqlException){
             sqlException.printStackTrace();
         }
         return count;
+    }
+    
+    public static boolean exists(String courseCode) {
+        connection = DBConnection.getConnection();
+        try {
+            getCourseByCode = connection.prepareStatement("select coursecode from java.course where coursecode = ?");
+            getCourseByCode.setString(1, courseCode);
+            resultSet = getCourseByCode.executeQuery();
+            return resultSet.next();
+        } catch (SQLException sqlException) {
+            sqlException.printStackTrace();
+            return false;
+        }
     }
 }

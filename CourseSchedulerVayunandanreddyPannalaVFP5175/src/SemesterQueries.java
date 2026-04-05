@@ -18,9 +18,9 @@ import java.util.ArrayList;
  */
 public class SemesterQueries {
     private static Connection connection;
-    private static ArrayList<String> faculty = new ArrayList<String>();
     private static PreparedStatement addSemester;
     private static PreparedStatement getSemesterList;
+    private static PreparedStatement semesterExists;
     private static ResultSet resultSet;
     
     public static void addSemester(String name)
@@ -59,6 +59,19 @@ public class SemesterQueries {
         }
         return semester;
         
+    }
+    
+    public static boolean exists(String name) {
+        connection = DBConnection.getConnection();
+        try {
+            semesterExists = connection.prepareStatement("select semester from java.semester where semester = ?");
+            semesterExists.setString(1, name);
+            resultSet = semesterExists.executeQuery();
+            return resultSet.next();
+        } catch (SQLException sqlException) {
+            sqlException.printStackTrace();
+            return false;
+        }
     }
     
     

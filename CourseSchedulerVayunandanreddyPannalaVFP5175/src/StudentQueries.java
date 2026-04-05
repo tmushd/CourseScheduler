@@ -21,6 +21,7 @@ public class StudentQueries {
     private static PreparedStatement getStudent;
     private static PreparedStatement getID;
     private static PreparedStatement getNameByID;
+    private static PreparedStatement studentExists;
     private static ResultSet resultSet;
    
     public static void addStudent(StudentEntry student){
@@ -56,7 +57,7 @@ public class StudentQueries {
         connection = DBConnection.getConnection();
         ArrayList<String> students = new ArrayList<>();
         try{
-            getStudents = connection.prepareStatement("select firstname, lastname from java.student");
+            getStudents = connection.prepareStatement("select firstname, lastname from java.student order by lastname, firstname");
             resultSet = getStudents.executeQuery();
             
             while (resultSet.next()){
@@ -74,7 +75,7 @@ public class StudentQueries {
         connection = DBConnection.getConnection();
         ArrayList<StudentEntry> students = new ArrayList<>();
         try{
-            getStudents = connection.prepareStatement("select firstname, lastname, studentid from java.student");
+            getStudents = connection.prepareStatement("select firstname, lastname, studentid from java.student order by lastname, firstname");
             resultSet = getStudents.executeQuery();
             
             while (resultSet.next()){
@@ -90,16 +91,20 @@ public class StudentQueries {
     public static String getStudentID(String name){
         connection = DBConnection.getConnection();
         String[] parts = name.split(",");
-        String first = parts[1];
-        String last = parts[0];
+        if (parts.length < 2) {
+            return "";
+        }
+        String first = parts[1].trim();
+        String last = parts[0].trim();
         String id = "";
         try{
             getID = connection.prepareStatement("select studentid from java.student where firstname = (?) and lastname = (?)");
             getID.setString(1, first);
             getID.setString(2, last);
             resultSet = getID.executeQuery();
-            resultSet.next();
-            id = resultSet.getString(1);
+            if (resultSet.next()) {
+                id = resultSet.getString(1);
+            }
         }
         catch(SQLException sqlException){
             sqlException.printStackTrace();
@@ -110,14 +115,14 @@ public class StudentQueries {
     public static String[] getStudentName(String id){
         connection = DBConnection.getConnection();
         String[] parts = new String[2];
-        String name = "";
         try{
             getNameByID = connection.prepareStatement("select firstname, lastname from java.student where studentid = ?");
             getNameByID.setString(1, id);
             resultSet = getNameByID.executeQuery();
-            resultSet.next();
-            name = resultSet.getString(1);
-            parts = name.split(",");
+            if (resultSet.next()) {
+                parts[0] = resultSet.getString(1);
+                parts[1] = resultSet.getString(2);
+            }
         }
         catch(SQLException sqlException){
             sqlException.printStackTrace();
@@ -131,12 +136,27 @@ public class StudentQueries {
             getStudent = connection.prepareStatement("select firstname, lastname from java.student where studentid = ?");
             getStudent.setString(1, id);
             resultSet = getStudent.executeQuery();
-            resultSet.next();
-            return new StudentEntry(id, resultSet.getString(1), resultSet.getString(2));
+            if (resultSet.next()) {
+                return new StudentEntry(id, resultSet.getString(1), resultSet.getString(2));
+            }
+            return null;
         }
         catch(SQLException sqlException){
             sqlException.printStackTrace();
             return null;
+        }
+    }
+    
+    public static boolean exists(String id) {
+        connection = DBConnection.getConnection();
+        try {
+            studentExists = connection.prepareStatement("select studentid from java.student where studentid = ?");
+            studentExists.setString(1, id);
+            resultSet = studentExists.executeQuery();
+            return resultSet.next();
+        } catch (SQLException sqlException) {
+            sqlException.printStackTrace();
+            return false;
         }
     }
 }
