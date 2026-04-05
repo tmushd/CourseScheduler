@@ -82,11 +82,6 @@ flowchart LR
 - Load demo data: `./scripts/load-seed-data.sh`
 - CI build check: `.github/workflows/build.yml`
 
-## Interview talking points
-- Designed a two-role scheduling workflow (admin + student) with waitlist promotion.
-- Implemented database-backed scheduling constraints and queue-like seat assignment.
-- Structured a desktop app with maintainable query abstractions and model objects.
-- Documented onboarding and deployment setup for reproducibility.
 
 ## Legacy artifacts
 This repository still includes original ZIP submissions for historical reference:
